@@ -1,0 +1,273 @@
+---
+title: "Final Project"
+author: "Jiayi Ge, Yue Liu, Songqi Wang, Kexin Zhang, TUT 0112, L1"
+subtitle: Analysis of Internet Use in the World
+output:
+  beamer_presentation: default
+  ioslides_presentation: default
+  widescreen: yes
+---
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# echo=FALSE will stop the code chunk from appearing in the knit document
+# warning=FALSE and message=FALSE will stop R messages from appearing in the knit document
+library(tidyverse)
+library(rpart)
+library(partykit)
+library(knitr)
+library(dplyr) 
+select <- dplyr::select
+path <- "https://raw.githubusercontent.com/ntaback/UofT_STA130/master/Fall2018/Finalproject/"
+
+democracyindex2017 <- read_csv(paste0(path,"democracyindex2017.csv"))
+education_cia2017 <- read_csv(paste0(path,"education_cia2017.csv"))
+gdpppp_cia2017 <- read_csv(paste0(path,"gdpppp_cia2017.csv"))
+lifeexpect_cia2017 <- read_csv(paste0(path,"lifeexpect_cia2017.csv"))
+healthexpend_cia2017 <- read_csv(paste0(path,"healthexpend_cia2017.csv"))
+internetusers_cia2017 <- read_csv(paste0(path,"internetusers_cia2017.csv"))
+telephonelines_cia2017 <- read_csv(paste0(path,"telephonelines_cia2017.csv"))
+population_cia2017 <- read_csv(paste0(path,"population_cia2017.csv"))
+world_regions <- read_csv(paste0(path,"world_regions.csv"))
+```
+
+## Introduction
+- The Internet usage is an essential intermedia in globalization and modern society.
+- The Internet usage is different around the world.
+- How different are the Internet usage in different countries?
+- What are the factors that have impact on Internet usage?
+
+## Objectives
+- How can we define internet use in a country?
+- Do different regions of the world have different internet usage? 
+- According to our definition of internet use, what is the impact of democracy, education, economy, and health on internet use? 
+
+## Data
+- Internet Usage = Internet Users/Population
+
+
+- Democracy Score
+- Education Expenditures 
+- GDP per capita
+- Life Expectancy
+- World Region
+
+## Data Cleaning
+
+- Select the columns and combine them into one dataframe with proper names
+- Change some character data, like GDP with $ sign, into type of double
+- Correct one spelling mistake in the data of region 
+- In some small countries, more users than population. The IntUsage >1 are removed.
+
+## Data Summary
+```{r, echo = FALSE,warning=FALSE}
+Democracy = democracyindex2017 %>% filter(Score != 'Score')
+Democracy = Democracy %>% mutate(DemocracyScore = as.numeric(as.character(Democracy$Score)))
+Democracy = Democracy %>% mutate(Government_type = Category)
+Democracy = Democracy %>% select(Country, Government_type, DemocracyScore)
+
+Education = education_cia2017 %>% mutate(Country = education_cia2017$Country, Education_GDP = education_cia2017$'(% OF GDP)')
+Education = Education %>% select(Country, Education_GDP)
+
+GDP_PPP = gdpppp_cia2017 %>% mutate(GDP_Per_Capita = as.numeric(gsub("[$,]","",as.character(gdpppp_cia2017$`GDP - PER CAPITA (PPP)`))))
+GDP_PPP = GDP_PPP %>% select(Country, GDP_Per_Capita)
+
+Life_expectancy = lifeexpect_cia2017 %>% mutate(Lifetime = lifeexpect_cia2017$`(YEARS)`)
+Life_expectancy = Life_expectancy %>% select(Country, Lifetime)
+
+Health = healthexpend_cia2017 %>% mutate(Healthexpend = healthexpend_cia2017$`(% OF GDP)`)
+Health = Health %>% select(Country, Healthexpend)
+
+Internetusers = internetusers_cia2017 %>% mutate(IntUsers = internetusers_cia2017$`INTERNET USERS`)
+Internetusers = Internetusers %>% select(Country, IntUsers)
+
+TeleLines = telephonelines_cia2017 %>% mutate(TeleLines = telephonelines_cia2017$`TELEPHONES - MAIN LINES IN USE`)
+TeleLines = TeleLines %>% select(Country, TeleLines)
+
+Population = population_cia2017 %>% mutate(Population = population_cia2017$POPULATION)
+Population = Population %>% select(Country, Population)
+
+Regions = world_regions %>% select(Country, Region)
+Regions[212,2] = 'Asia & Pacific'
+
+Tidy_Data = Democracy %>%
+  full_join(Education, by = "Country") %>%
+  full_join(GDP_PPP, by = "Country") %>%
+  full_join(Life_expectancy, by = "Country") %>%
+  full_join(Health, by = "Country") %>%
+  full_join(Internetusers, by = "Country") %>%
+  full_join(TeleLines, by = "Country") %>%
+  full_join(Population, by = "Country") %>%
+  full_join(Regions, by = "Country")
+
+Tidy_Data = Tidy_Data %>% mutate(IntUsage = IntUsers/Population)
+Tidy_Data = Tidy_Data %>% arrange(Country) %>%
+  filter(IntUsage <= 1)
+Tidy_Data = Tidy_Data[c(1,12,2,3,4,5,6,7,8,9,10,11)]
+glimpse(Tidy_Data)
+
+```
+
+## Statistic method 1:Boxplot
+
+- We create boxplot by using geom_boxplot() fuction in R language which belongs to library(ggplot2) package to describe the relationship between the 
+Region and IntUsage. 
+
+- We create boxplot by using geom_boxplot() fuction in R language which belongs to library(ggplot2) package to describe the relationship between the Government_type and IntUsage.
+
+## Statistic method 2: linear regression
+
+- We create the linear regression by using lm() fuction to describe the relationship between IntUsage and Region. 
+
+- We create the linear regression by using lm() fuction to describe the relationship between IntUsage and DemocracyScore.
+
+- We create the linear regression by using lm() fuction to describe the relationship between IntUsage and Education_GDP.
+
+- We create the linear regression by using lm() fuction to describe the relationship between IntUsage and GDP_Per_Capita.
+
+- We create the linear regression by using lm() fuction to describe the relationship between IntUsage and Lifetime.
+
+## Region
+```{r,echo=FALSE, warning = FALSE}
+compare_Reg_usage = compare_Reg_usage = Tidy_Data %>% select(Country, IntUsage, Region)
+compare_Reg_usage = compare_Reg_usage %>% filter(!is.na(IntUsage))
+compare_Reg_usage = compare_Reg_usage %>% filter(!is.na(Region))
+
+ggplot(data = compare_Reg_usage, aes(x = Region,  y = IntUsage, color = Region)) + geom_boxplot(outlier.shape = NA)+geom_jitter(position = position_jitter(width=.1, height=0)) + scale_x_discrete(limits=c("Africa","Asia & Pacific", "Arab States","South/Latin America", "Europe", "North America")) + theme(axis.text.x  = element_text(angle=0, vjust=0.5, size=7)) + labs(title="Region vs IntUsage") +
+  theme(plot.title=element_text(size=15, 
+                                    face="bold", 
+                                    family="American Typewriter",
+                                    hjust=0.5,
+                                    lineheight=1.2))
+```
+
+
+## Region
+```{r,echo=FALSE,, warning = FALSE}
+compare_Reg_usage$Region <-factor(compare_Reg_usage$Region)
+compare_Reg_usage<-within(compare_Reg_usage,Region<- relevel(Region, ref = "Asia & Pacific"))
+signif(summary(lm(IntUsage ~ Region, data = compare_Reg_usage))$coefficient,digits = 4)
+```
+
+## Democracy
+```{r, echo = FALSE, warning = FALSE}
+compare_Dem_usage = Tidy_Data %>% select(Country, IntUsage, DemocracyScore)
+compare_Dem_usage = compare_Dem_usage %>% filter(!is.na(IntUsage))
+compare_Dem_usage = compare_Dem_usage %>% filter(!is.na(DemocracyScore))
+
+ggplot(data = compare_Dem_usage, aes(x = DemocracyScore,  y = IntUsage)) + geom_point() + geom_smooth(method="lm") + theme_bw() +
+  labs(title="Democracy score vs IntUsage", x="Democracy score")+
+  theme(plot.title=element_text(size=15, 
+                                    face="bold", 
+                                    family="American Typewriter",
+                                    hjust=0.5,
+                                    lineheight=1.2))
+```
+
+## Democracy
+```{r, echo = FALSE,warning = FALSE}
+summary(lm(IntUsage ~ DemocracyScore, data = compare_Dem_usage))
+```
+
+## Democracy
+```{r,echo=FALSE,warning = FALSE}
+
+compare_Cat_usage = compare_Cat_usage = Tidy_Data %>% select(Country, IntUsage, Government_type)
+compare_Cat_usage = compare_Cat_usage %>% filter(!is.na(IntUsage))
+compare_Cat_usage = compare_Cat_usage %>% filter(!is.na(Government_type))
+
+ggplot(data = compare_Cat_usage, aes(x = Government_type,  y = IntUsage)) + geom_boxplot() + labs(title="Government type vs IntUsage", x="Government type") +
+  theme(plot.title=element_text(size=15, 
+                                    face="bold", 
+                                    family="American Typewriter",
+                                    hjust=0.5,
+                                    lineheight=1.2))
+
+```
+
+## Education
+```{r,echo = FALSE,warning = FALSE}
+compare_edu_usage = Tidy_Data %>% select(Country, Education_GDP, IntUsage)
+compare_edu_usage = compare_edu_usage %>% filter(!is.na(IntUsage))
+compare_edu_usage = compare_edu_usage %>% filter(!is.na(Education_GDP))
+
+ggplot(data = compare_edu_usage, aes(x = Education_GDP,  y = IntUsage)) + geom_point() + geom_smooth(method="lm") + theme_bw() +
+  labs(title="Education % of GDP vs IntUsage", x="Education % of GDP") +
+  theme(plot.title=element_text(size=15, 
+                                    face="bold", 
+                                    family="American Typewriter",
+                                    hjust=0.5,
+                                    lineheight=1.2))
+
+```
+
+## Education
+```{r, echo = FALSE,warning = FALSE}
+summary(lm(IntUsage ~ Education_GDP, data = compare_edu_usage))
+```
+
+## Economy
+```{r,echo = FALSE,warning = FALSE}
+compare_gdp_usage = Tidy_Data %>% select(Country, GDP_Per_Capita, IntUsage)
+compare_gdp_usage = compare_gdp_usage %>% filter(!is.na(GDP_Per_Capita))
+compare_gdp_usage = compare_gdp_usage %>% filter(!is.na(IntUsage))
+
+ggplot(data = compare_gdp_usage, aes(x = GDP_Per_Capita,  y = IntUsage)) + geom_point() + geom_smooth(method="lm") + theme_bw() +
+  labs(title="GDP per capita vs IntUsage", x="GDP per capita") +
+  theme(plot.title=element_text(size=15, 
+                                    face="bold", 
+                                    family="American Typewriter",
+                                    hjust=0.5,
+                                    lineheight=1.2))
+
+```
+
+## Economy
+```{r, echo = FALSE,warning = FALSE}
+summary(lm(IntUsage ~ GDP_Per_Capita, data = compare_gdp_usage))
+```
+
+## Health
+```{r,echo = FALSE,warning = FALSE}
+compare_life_usage = Tidy_Data %>% select(Country, Lifetime, IntUsage)
+compare_life_usage = compare_life_usage %>% filter(!is.na(Lifetime))
+compare_life_usage = compare_life_usage %>% filter(!is.na(IntUsage))
+
+ggplot(data = compare_life_usage, aes(x = Lifetime,  y = IntUsage)) + geom_point() + geom_smooth(method="lm") + theme_bw() +
+  labs(title="Life Expectancy vs IntUsage", x="Life Expectancy") +
+  theme(plot.title=element_text(size=15, 
+                                    face="bold", 
+                                    family="American Typewriter",
+                                    hjust=0.5,
+                                    lineheight=1.2))
+
+```
+
+## Health
+```{r, echo = FALSE,warning = FALSE}
+summary(lm(IntUsage ~ Lifetime, data = compare_life_usage))
+```
+
+## Final Model
+```{r, echo = FALSE,warning = FALSE}
+
+kable(format(summary(lm(IntUsage ~ DemocracyScore+GDP_Per_Capita+Lifetime+Education_GDP,data = Tidy_Data))$coefficient),scientific = TRUE)
+```
+
+R-squared:
+```{r,echo = FALSE,warning = FALSE}
+summary(lm(IntUsage ~ DemocracyScore+GDP_Per_Capita+Lifetime+Education_GDP,data = Tidy_Data))$r.sq
+```
+
+## Conclusion
+- We do have a difference between the internet usages of different countries. Generally, developed countries or developed regions have a higher Internet usage.
+- Economy and health have a strong positive impact on internet usage.
+- Democracy level have a week positive impact on internet usage.
+- Education has no impact on internet usage.
+
+## Acknowledgment
+We are thankful to our Prof.Taback for his knowledge that provided to us during the course of this seminar and his presentation.
+
+Especially thanks to our TA, Yang Zhu for his valuable guidance and encouragement.
+
+Last but not least, we would also want to extend our appreciation to those could not be mentioned here due to the limitation of time.
